@@ -36,14 +36,13 @@
 
                 <div id="loader" class="hidden space-y-3">
                     <div class="h-28 w-full rounded-3xl shimmer"></div>
-                    <div class="h-28 w-full rounded-3xl shimmer"></div>
                 </div>
 
                 <div id="results" class="space-y-4"></div>
             </main>
         </div>
 
-        <footer style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(248, 249, 245, 0.98); padding: 20px 0 calc(25px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 10px; border-top: 1px solid rgba(0,0,0,0.05); z-index: 100;">
+        <footer style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(248, 249, 245, 0.98); padding: 20px 0 calc(25px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; z-index: 100;">
             <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="craveable" data-color="#166534" data-text="Support App" data-font="Lato" data-font-color="#ffffff"></script>
         </footer>
     </div>
@@ -68,13 +67,7 @@
                     body: JSON.stringify({
                         contents: [{
                             parts: [{
-                                text: `Find 10 popular pubs, bars, and restaurants in ${input}, UK. 
-                                Format each entry exactly like this:
-                                Name: [Name]
-                                Type: [Type]
-                                Address: [Address]
-                                Summary: [One sentence description]
-                                ---`
+                                text: `List 10 popular pubs and restaurants in ${input}, UK. For each one, provide the Name, Type, and a short one-sentence Summary. Separate each venue with the symbol ###.`
                             }]
                         }]
                     })
@@ -85,31 +78,20 @@
 
                 if (data.candidates && data.candidates[0].content.parts[0].text) {
                     const rawText = data.candidates[0].content.parts[0].text;
-                    const entries = rawText.split('---');
+                    const items = rawText.split('###');
 
-                    entries.forEach(entry => {
-                        if (entry.trim().length < 10) return;
-                        
-                        const name = entry.match(/Name: (.*)/)?.[1] || "Unknown Venue";
-                        const type = entry.match(/Type: (.*)/)?.[1] || "Restaurant";
-                        const addr = entry.match(/Address: (.*)/)?.[1] || "";
-                        const summ = entry.match(/Summary: (.*)/)?.[1] || "";
-
+                    items.forEach(item => {
+                        if (item.trim().length < 5) return;
                         const card = document.createElement('div');
-                        card.className = "glass-card p-6 rounded-[2rem] shadow-sm border-2 border-white animate-in fade-in slide-in-from-bottom-4";
-                        card.innerHTML = `
-                            <h3 class="font-bold brand-green text-lg leading-tight">${name}</h3>
-                            <p class="text-[10px] font-black text-lime-600 uppercase mt-1 mb-2 tracking-widest">${type} • ${addr}</p>
-                            <p class="text-xs text-neutral-600 leading-relaxed">${summ}</p>
-                        `;
+                        card.className = "glass-card p-6 rounded-[2rem] shadow-sm border-2 border-white mb-4";
+                        // This allows for flexible formatting from the AI
+                        card.innerHTML = `<div class="text-xs text-neutral-800 leading-relaxed whitespace-pre-line">${item.trim()}</div>`;
                         resDiv.appendChild(card);
                     });
-                } else {
-                    resDiv.innerHTML = "<p class='text-center p-10 opacity-50'>No venues found. Try another town.</p>";
                 }
             } catch (e) {
                 loader.classList.add('hidden');
-                resDiv.innerHTML = "<p class='text-center p-10 text-red-500 font-bold'>Connection lost. Please refresh.</p>";
+                resDiv.innerHTML = "<p class='text-center p-10 opacity-50'>Connection error. Try refreshing.</p>";
             }
         }
     </script>
