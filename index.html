@@ -35,14 +35,14 @@
                 </div>
 
                 <div id="venue-inputs" class="glass-card p-5 rounded-[2rem] space-y-3 shadow-sm border-2 border-white">
-                    <input id="venue-loc-input" type="text" placeholder="e.g. Leeds, LS1..." class="w-full border-2 border-lime-50 px-4 py-3 rounded-xl focus:outline-none">
-                    <button onclick="performVenueSearch()" class="w-full bg-brand-green text-white py-4 rounded-xl font-black uppercase text-sm shadow-md active:scale-95 transition-all">Find Vegan Spots</button>
+                    <input id="venue-loc-input" type="text" placeholder="Enter City or Postcode..." class="w-full border-2 border-lime-50 px-4 py-3 rounded-xl focus:outline-none">
+                    <button onclick="performVenueSearch()" class="w-full bg-brand-green text-white py-4 rounded-xl font-black uppercase text-sm shadow-md active:scale-95 transition-all">Search Establishments</button>
                 </div>
 
                 <div id="dish-inputs" class="hidden glass-card p-5 rounded-[2rem] space-y-3 shadow-sm border-2 border-white">
-                    <input id="dish-query" type="text" placeholder="e.g. Vegan Burger..." class="w-full border-2 border-lime-50 px-4 py-3 rounded-xl focus:outline-none">
+                    <input id="dish-query" type="text" placeholder="e.g. Vegan Pizza..." class="w-full border-2 border-lime-50 px-4 py-3 rounded-xl focus:outline-none">
                     <input id="dish-loc" type="text" placeholder="Where?" class="w-full border-2 border-lime-50 px-4 py-3 rounded-xl focus:outline-none">
-                    <button onclick="performDishSearch()" class="w-full bg-brand-green text-white py-4 rounded-xl font-black uppercase text-sm shadow-md">Find Dish</button>
+                    <button onclick="performDishSearch()" class="w-full bg-brand-green text-white py-4 rounded-xl font-black uppercase text-sm shadow-md">Find Specific Dish</button>
                 </div>
 
                 <div id="loader" class="hidden space-y-3"><div class="h-28 w-full rounded-[2.5rem] shimmer"></div></div>
@@ -65,7 +65,7 @@
             document.getElementById('tab-dish').className = mode === 'dish' ? 'flex-1 py-2 text-[10px] font-black uppercase rounded-xl bg-white text-brand-green shadow-sm' : 'flex-1 py-2 text-[10px] font-black uppercase rounded-xl text-lime-800/60';
         }
 
-        async function executeSearch(queryText) {
+        async function executeSearch(userQuery) {
             const list = document.getElementById('results-list');
             const loader = document.getElementById('loader');
             list.innerHTML = ''; 
@@ -77,7 +77,14 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         contents: [{ 
-                            parts: [{ text: `Act as a vegan food guide. Search for: ${queryText}. Provide 10 real UK results. For each result, list the Name, the Type of venue, the Address, and a short 1-sentence description. Separate each venue with the text marker: [SPLIT]` }] 
+                            parts: [{ text: `You are a live UK restaurant scout. Search your database for: ${userQuery}. 
+                            Return exactly 10 real, existing establishments. 
+                            For each, provide: 
+                            NAME: [The Name]
+                            TYPE: [Pub/Restaurant/Bar]
+                            LOCATION: [Street and Area]
+                            VIBE: [One sentence about the vegan food]
+                            ---` }] 
                         }] 
                     })
                 });
@@ -87,17 +94,24 @@
 
                 if (data.candidates && data.candidates[0].content.parts[0].text) {
                     const rawText = data.candidates[0].content.parts[0].text;
-                    const items = rawText.split('[SPLIT]');
+                    const items = rawText.split('---');
 
                     items.forEach(item => {
-                        if (item.trim().length < 10) return;
+                        if (item.trim().length < 15) return;
                         const card = document.createElement('div');
                         card.className = "glass-card p-6 rounded-[2.5rem] shadow-sm border-2 border-white mb-2 animate-in fade-in slide-in-from-bottom-4";
-                        card.innerHTML = `<div class="text-xs text-neutral-800 leading-relaxed font-medium whitespace-pre-line">${item.trim().replace(/^\*/gm, '')}</div>`;
+                        
+                        // Formatting the output for better readability
+                        const cleanItem = item.trim()
+                            .replace(/NAME:/g, '<span class="brand-green font-black text-lg">')
+                            .replace(/TYPE:/g, '</span><br><span class="text-[10px] font-black text-lime-600 uppercase tracking-widest">')
+                            .replace(/LOCATION:/g, '</span> • <span class="text-[10px] font-bold text-neutral-400 uppercase">')
+                            .replace(/VIBE:/g, '</span><p class="text-xs text-neutral-600 mt-2">')
+                            + '</p>';
+
+                        card.innerHTML = `<div class="leading-relaxed">${cleanItem}</div>`;
                         list.appendChild(card);
                     });
-                } else {
-                    list.innerHTML = "<p class='text-center p-10 opacity-40 text-xs'>No results found. Please check your spelling.</p>";
                 }
             } catch (e) {
                 loader.classList.add('hidden');
@@ -105,8 +119,8 @@
             }
         }
 
-        function performVenueSearch() { executeSearch("Vegan-friendly pubs and restaurants in " + document.getElementById('venue-loc-input').value); }
-        function performDishSearch() { executeSearch("Best places to get " + document.getElementById('dish-query').value + " in " + document.getElementById('dish-loc').value); }
+        function performVenueSearch() { executeSearch("Real-time search for the best vegan-friendly pubs and restaurants in " + document.getElementById('venue-loc-input').value); }
+        function performDishSearch() { executeSearch("Find specific restaurants that serve the best " + document.getElementById('dish-query').value + " in " + document.getElementById('dish-loc').value); }
     </script>
 </body>
 </html>
