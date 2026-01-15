@@ -6,9 +6,8 @@
     <title>craVEable</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background-color: #f8f9f5; margin: 0; height: 100dvh; overflow: hidden; }
-        #app { height: 100dvh; display: flex; flex-direction: column; }
-        .scroll-area { flex: 1; overflow-y: auto; padding-bottom: 200px; -webkit-overflow-scrolling: touch; }
+        body { font-family: -apple-system, sans-serif; background-color: #f8f9f5; margin: 0; height: 100dvh; display: flex; flex-direction: column; }
+        .scroll-area { flex: 1; overflow-y: auto; padding-bottom: 150px; -webkit-overflow-scrolling: touch; }
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5); }
         .brand-green { color: #166534; }
         .bg-brand-green { background-color: #166534; }
@@ -17,37 +16,39 @@
     </style>
 </head>
 <body>
-    <div id="app">
-        <header class="p-6 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-brand-green rounded-xl flex items-center justify-center shadow-lg">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.4 20 4c1 1 2 5 2 10 0 4.4-4.5 6-11 6zM9 21c0-5 2-7 5-7"/></svg>
-                </div>
-                <h1 class="text-xl font-black brand-green uppercase tracking-tighter">cra<span class="text-lime-500">VE</span>able</h1>
+    <div id="app" class="flex flex-col h-full">
+        <header class="p-6 flex items-center gap-3">
+            <div class="w-10 h-10 bg-brand-green rounded-xl flex items-center justify-center shadow-lg transform rotate-2">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.4 20 4c1 1 2 5 2 10 0 4.4-4.5 6-11 6zM9 21c0-5 2-7 5-7"/></svg>
             </div>
+            <h1 class="text-xl font-black brand-green uppercase tracking-tighter">cra<span class="text-lime-500">VE</span>able</h1>
         </header>
 
         <div class="scroll-area">
             <main class="p-4 space-y-4">
-                <div class="glass-card p-5 rounded-[2rem] space-y-3 shadow-sm border-2 border-white">
-                    <input id="loc-input" type="text" placeholder="Enter UK Town or Postcode..." class="w-full border-2 border-lime-50 px-4 py-3 rounded-xl focus:outline-none focus:border-brand-green">
-                    <button onclick="runSearch()" class="w-full bg-brand-green text-white py-4 rounded-xl font-black uppercase text-sm shadow-md active:scale-95 transition-all">Search for Food & Drink</button>
+                <div class="glass-card p-6 rounded-[2.5rem] space-y-3 shadow-sm border-2 border-white">
+                    <p class="text-[10px] font-bold uppercase opacity-40 tracking-widest ml-1">UK Venue Finder</p>
+                    <input id="loc-input" type="text" placeholder="Leeds, London, Postcode..." class="w-full border-2 border-lime-50 px-4 py-4 rounded-2xl focus:outline-none focus:border-brand-green bg-white/50">
+                    <button onclick="runSearch()" class="w-full bg-brand-green text-white py-4 rounded-2xl font-black uppercase text-sm shadow-xl active:scale-95 transition-all">Search Now</button>
                 </div>
 
                 <div id="loader" class="hidden space-y-3">
-                    <div class="h-28 w-full rounded-3xl shimmer"></div>
+                    <div class="h-32 w-full rounded-[2.5rem] shimmer"></div>
+                    <div class="h-32 w-full rounded-[2.5rem] shimmer"></div>
                 </div>
 
                 <div id="results" class="space-y-4"></div>
             </main>
         </div>
 
-        <footer style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(248, 249, 245, 0.98); padding: 20px 0 calc(25px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; z-index: 100;">
+        <footer class="fixed bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-md border-t flex flex-col items-center gap-2">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] opacity-30">Powered by Gemini AI</p>
             <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="craveable" data-color="#166534" data-text="Support App" data-font="Lato" data-font-color="#ffffff"></script>
         </footer>
     </div>
 
     <script>
+        // API KEY VERIFIED
         const apiKey = "AIzaSyClBK14WwHetfsnl-IZM3zMzg81qbVYtbU";
 
         async function runSearch() {
@@ -67,7 +68,7 @@
                     body: JSON.stringify({
                         contents: [{
                             parts: [{
-                                text: `List 10 popular pubs and restaurants in ${input}, UK. For each one, provide the Name, Type, and a short one-sentence Summary. Separate each venue with the symbol ###.`
+                                text: `Provide a list of 10 real pubs and restaurants in ${input}, UK. For each, give Name, Type, and a short Summary. Separate each venue with the symbol "---". Do not include any other text.`
                             }]
                         }]
                     })
@@ -78,20 +79,23 @@
 
                 if (data.candidates && data.candidates[0].content.parts[0].text) {
                     const rawText = data.candidates[0].content.parts[0].text;
-                    const items = rawText.split('###');
+                    const items = rawText.split('---');
 
                     items.forEach(item => {
-                        if (item.trim().length < 5) return;
+                        const content = item.trim();
+                        if (content.length < 10) return;
+
                         const card = document.createElement('div');
-                        card.className = "glass-card p-6 rounded-[2rem] shadow-sm border-2 border-white mb-4";
-                        // This allows for flexible formatting from the AI
-                        card.innerHTML = `<div class="text-xs text-neutral-800 leading-relaxed whitespace-pre-line">${item.trim()}</div>`;
+                        card.className = "glass-card p-6 rounded-[2.5rem] shadow-sm border-2 border-white mb-2 animate-in fade-in slide-in-from-bottom-4";
+                        card.innerHTML = `<div class="text-xs text-neutral-800 leading-relaxed whitespace-pre-line font-medium">${content}</div>`;
                         resDiv.appendChild(card);
                     });
+                } else {
+                    resDiv.innerHTML = "<p class='text-center p-10 opacity-40 text-xs'>No results found. Try a nearby town.</p>";
                 }
             } catch (e) {
                 loader.classList.add('hidden');
-                resDiv.innerHTML = "<p class='text-center p-10 opacity-50'>Connection error. Try refreshing.</p>";
+                resDiv.innerHTML = "<p class='text-center p-10 text-red-700 text-xs font-bold'>Connection Error. Refresh the page.</p>";
             }
         }
     </script>
