@@ -101,152 +101,173 @@
     </div>
 
     <script>
-        // INSERT YOUR API KEY BELOW
-        const apiKey = "AIzaSyDyPB-bmAlpzEYte0rlhFY0X_m6og8iNmE"; 
-        
-        let activeVenue = null;
+    // 1. PASTE YOUR KEY HERE
+    const apiKey = ""; 
 
-        function setMode(m) {
-            document.getElementById('tab-venue').className = m==='venue' ? 'flex-1 py-2 text-[11px] font-black uppercase rounded-xl bg-white text-brand-green shadow-sm' : 'flex-1 py-2 text-[11px] font-black uppercase rounded-xl text-lime-800/60';
-            document.getElementById('tab-dish').className = m==='dish' ? 'flex-1 py-2 text-[11px] font-black uppercase rounded-xl bg-white text-brand-green shadow-sm' : 'flex-1 py-2 text-[11px] font-black uppercase rounded-xl text-lime-800/60';
-            document.getElementById('venue-inputs').classList.toggle('hidden', m!=='venue');
-            document.getElementById('dish-inputs').classList.toggle('hidden', m!=='dish');
-            document.getElementById('results-list').innerHTML = '';
-        }
+    let activeVenue = null;
 
-        async function executeSearch(query) {
-            if(!apiKey) return;
-            const list = document.getElementById('results-list');
-            const loader = document.getElementById('loader');
-            list.innerHTML = '';
-            loader.classList.remove('hidden');
+    function setMode(m) {
+        document.getElementById('tab-venue').className = m==='venue' ? 'flex-1 py-2 text-[11px] font-black uppercase rounded-xl bg-white text-brand-green shadow-sm' : 'flex-1 py-2 text-[11px] font-black uppercase rounded-xl text-lime-800/60';
+        document.getElementById('tab-dish').className = m==='dish' ? 'flex-1 py-2 text-[11px] font-black uppercase rounded-xl bg-white text-brand-green shadow-sm' : 'flex-1 py-2 text-[11px] font-black uppercase rounded-xl text-lime-800/60';
+        document.getElementById('venue-inputs').classList.toggle('hidden', m!=='venue');
+        document.getElementById('dish-inputs').classList.toggle('hidden', m!=='dish');
+        document.getElementById('results-list').innerHTML = '';
+    }
 
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: `${query}. Search for real UK venues. Format: Name | Category | Address | Short Description` }] }],
-                        tools: [{ "google_search": {} }]
-                    })
-                });
-
-                const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                const lines = text.split('\n').filter(l => l.includes('|'));
-
-                if(lines.length === 0) {
-                    list.innerHTML = `<div class="p-10 text-center opacity-40 font-bold uppercase text-[10px]">No results. Try another area.</div>`;
-                    return;
-                }
-
-                lines.forEach(line => {
-                    const parts = line.split('|').map(p => p.trim().replace(/^[\d\.\s-]+/, ''));
-                    if(parts.length < 2) return;
-                    const [name, cat, addr, desc] = parts;
-                    const card = document.createElement('div');
-                    card.className = "glass-card p-6 rounded-[2.5rem] animate-pop cursor-pointer active:scale-95 transition-transform";
-                    card.onclick = () => startChat({ name, category: cat, location: addr });
-                    card.innerHTML = `
-                        <h3 class="font-bold text-lg brand-green leading-tight">${name}</h3>
-                        <p class="text-lime-600 text-[9px] font-black uppercase mb-2">${cat || 'UK Venue'} • ${addr || ''}</p>
-                        <p class="text-neutral-500 text-xs leading-relaxed line-clamp-2">${desc || 'View vegan options...'}</p>
-                    `;
-                    list.appendChild(card);
-                });
-            } catch (e) {
-                list.innerHTML = `<div class="p-10 text-center text-red-800/40 font-bold uppercase text-[10px]">Search Unavailable.</div>`;
-            } finally {
-                loader.classList.add('hidden');
+    async function fetchWithRetry(url, options, retries = 5, backoff = 1000) {
+        for (let i = 0; i < retries; i++) {
+            const res = await fetch(url, options);
+            if (res.ok) return res;
+            if (res.status === 429 || res.status >= 500) {
+                await new Promise(r => setTimeout(r, backoff));
+                backoff *= 2;
+                continue;
             }
+            throw new Error(`Status: ${res.status}`);
         }
+        throw new Error("Maximum retries reached");
+    }
 
-        function performVenueSearch() {
-            const val = document.getElementById('venue-loc-input').value;
-            if(val) executeSearch(`Find 8 specific vegan-friendly pubs, bars, and restaurants in ${val}, UK`);
+    async function executeSearch(query) {
+        if(!apiKey) {
+            alert("Please enter your API Key in the code.");
+            return;
         }
+        const list = document.getElementById('results-list');
+        const loader = document.getElementById('loader');
+        list.innerHTML = '';
+        loader.classList.remove('hidden');
 
-        function performDishSearch() {
-            const d = document.getElementById('dish-query').value;
-            const l = document.getElementById('dish-loc').value;
-            if(d && l) executeSearch(`Find 8 specific UK restaurants or bars currently serving ${d} in ${l}`);
-        }
-
-        function startChat(v) {
-            activeVenue = v;
-            document.getElementById('search-view').classList.add('hidden');
-            document.getElementById('chat-view').classList.remove('hidden');
-            document.getElementById('back-btn').classList.remove('hidden');
-            document.getElementById('chat-header').innerHTML = `<h2 class="font-black brand-green uppercase text-sm">${v.name}</h2><p class="text-[9px] text-lime-600 font-bold uppercase">${v.location}</p>`;
-            document.getElementById('chat-messages').innerHTML = '';
-            addMsg("ai", `Checking the current menu for <b>${v.name}</b>. I'll focus on finding vegan-certified dishes for you.`);
-        }
-
-        async function handleChat(userText) {
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userText }] }],
-                        systemInstruction: { 
-                            parts: [{ text: `You are craVEable Concierge. Help with ${activeVenue.name}. 
-                            Identify vegan options. Use real-time search for menus/reviews. Be concise.` }] 
-                        },
-                        tools: [{ "google_search": {} }]
-                    })
-                });
-                const data = await res.json();
-                const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble retrieving the menu.";
-                addMsg("ai", aiResponse);
-            } catch (e) { 
-                addMsg("ai", "Connection error. Please try again."); 
-            }
-        }
-
-        function addMsg(r, t) {
-            const box = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.className = `flex ${r==='user'?'justify-end':'justify-start'} animate-pop`;
-            div.innerHTML = `<div class="${r==='user'?'bg-brand-green text-white rounded-tr-none':'bg-white border border-lime-100 rounded-tl-none'} p-4 rounded-2xl text-xs shadow-sm max-w-[85%]">${t}</div>`;
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
-        }
-
-        document.getElementById('chat-form').onsubmit = (e) => {
-            e.preventDefault();
-            const i = document.getElementById('chat-input');
-            const val = i.value.trim();
-            if(!val) return;
-            addMsg("user", val);
-            handleChat(val);
-            i.value = '';
-        }
-
-        function showSearch() {
-            document.getElementById('search-view').classList.remove('hidden');
-            document.getElementById('chat-view').classList.add('hidden');
-            document.getElementById('back-btn').classList.add('hidden');
-        }
-
-        function showInstallInstructions() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const msg = isIOS 
-                ? "Tap 'Share' (square icon with arrow) at the bottom, then scroll down and tap 'Add to Home Screen'."
-                : "Tap the browser menu, then tap 'Install app' or 'Add to Home screen'.";
+        try {
+            // Updated to the stable preview model for better reliability
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             
-            const modal = document.createElement('div');
-            modal.className = "fixed inset-0 bg-black/70 backdrop-blur-sm z-[300] flex items-center justify-center p-6 animate-pop";
-            modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
-            modal.innerHTML = `
-                <div class="bg-white rounded-[2.5rem] p-8 max-w-xs w-full text-center space-y-4 shadow-2xl">
-                    <h3 class="font-black brand-green text-xl leading-tight">Install the App</h3>
-                    <p class="text-neutral-500 text-sm leading-relaxed">${msg}</p>
-                    <button onclick="this.parentElement.parentElement.remove()" class="w-full bg-brand-green text-white py-4 rounded-2xl font-bold">Done</button>
-                </div>
-            `;
-            document.body.appendChild(modal);
+            const res = await fetchWithRetry(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `${query}. Search for real UK venues. Format: Name | Category | Address | Short Description` }] }],
+                    tools: [{ "google_search": {} }]
+                })
+            });
+
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            const lines = text.split('\n').filter(l => l.includes('|'));
+
+            if(lines.length === 0) {
+                list.innerHTML = `<div class="p-10 text-center opacity-40 font-bold uppercase text-[10px]">No venues found in this area.</div>`;
+                return;
+            }
+
+            lines.forEach(line => {
+                const parts = line.split('|').map(p => p.trim().replace(/^[\d\.\s-]+/, ''));
+                if(parts.length < 2) return;
+                const [name, cat, addr, desc] = parts;
+                const card = document.createElement('div');
+                card.className = "glass-card p-6 rounded-[2.5rem] animate-pop cursor-pointer active:scale-95 transition-transform";
+                card.onclick = () => startChat({ name, category: cat, location: addr });
+                card.innerHTML = `
+                    <h3 class="font-bold text-lg brand-green leading-tight">${name}</h3>
+                    <p class="text-lime-600 text-[9px] font-black uppercase mb-2">${cat || 'UK Venue'} • ${addr || ''}</p>
+                    <p class="text-neutral-500 text-xs leading-relaxed line-clamp-2">${desc || 'View vegan options...'}</p>
+                `;
+                list.appendChild(card);
+            });
+        } catch (e) {
+            list.innerHTML = `<div class="p-10 text-center text-red-800/60 font-bold uppercase text-[10px]">Error: ${e.message}<br>Check your API Key & Netlify logs.</div>`;
+        } finally {
+            loader.classList.add('hidden');
         }
-    </script>
+    }
+
+    function performVenueSearch() {
+        const val = document.getElementById('venue-loc-input').value;
+        if(val) executeSearch(`Find 8 specific vegan-friendly pubs, bars, and restaurants in ${val}, UK`);
+    }
+
+    function performDishSearch() {
+        const d = document.getElementById('dish-query').value;
+        const l = document.getElementById('dish-loc').value;
+        if(d && l) executeSearch(`Find 8 specific UK restaurants or bars currently serving ${d} in ${l}`);
+    }
+
+    function startChat(v) {
+        activeVenue = v;
+        document.getElementById('search-view').classList.add('hidden');
+        document.getElementById('chat-view').classList.remove('hidden');
+        document.getElementById('back-btn').classList.remove('hidden');
+        document.getElementById('chat-header').innerHTML = `<h2 class="font-black brand-green uppercase text-sm">${v.name}</h2><p class="text-[9px] text-lime-600 font-bold uppercase">${v.location}</p>`;
+        document.getElementById('chat-messages').innerHTML = '';
+        addMsg("ai", `Checking the current menu for <b>${v.name}</b>. I'll focus on finding vegan-certified dishes for you.`);
+    }
+
+    async function handleChat(userText) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const res = await fetchWithRetry(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: userText }] }],
+                    systemInstruction: { 
+                        parts: [{ text: `You are craVEable Concierge. Help with ${activeVenue.name}. Identify vegan options. Use real-time search for menus/reviews. Be concise.` }] 
+                    },
+                    tools: [{ "google_search": {} }]
+                })
+            });
+            const data = await res.json();
+            const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from server.";
+            addMsg("ai", aiResponse);
+        } catch (e) { 
+            addMsg("ai", `Error: ${e.message}`); 
+        }
+    }
+
+    function addMsg(r, t) {
+        const box = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = `flex ${r==='user'?'justify-end':'justify-start'} animate-pop`;
+        div.innerHTML = `<div class="${r==='user'?'bg-brand-green text-white rounded-tr-none':'bg-white border border-lime-100 rounded-tl-none'} p-4 rounded-2xl text-xs shadow-sm max-w-[85%]">${t}</div>`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    document.getElementById('chat-form').onsubmit = (e) => {
+        e.preventDefault();
+        const i = document.getElementById('chat-input');
+        const val = i.value.trim();
+        if(!val) return;
+        addMsg("user", val);
+        handleChat(val);
+        i.value = '';
+    }
+
+    function showSearch() {
+        document.getElementById('search-view').classList.remove('hidden');
+        document.getElementById('chat-view').classList.add('hidden');
+        document.getElementById('back-btn').classList.add('hidden');
+    }
+
+    function showInstallInstructions() {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const msg = isIOS 
+            ? "Tap 'Share' at the bottom, then scroll down and tap 'Add to Home Screen'."
+            : "Tap the browser menu, then tap 'Install app' or 'Add to Home screen'.";
+        
+        const modal = document.createElement('div');
+        modal.className = "fixed inset-0 bg-black/70 backdrop-blur-sm z-[300] flex items-center justify-center p-6 animate-pop";
+        modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
+        modal.innerHTML = `
+            <div class="bg-white rounded-[2.5rem] p-8 max-w-xs w-full text-center space-y-4 shadow-2xl">
+                <h3 class="font-black brand-green text-xl leading-tight">Install the App</h3>
+                <p class="text-neutral-500 text-sm leading-relaxed">${msg}</p>
+                <button onclick="this.parentElement.parentElement.remove()" class="w-full bg-brand-green text-white py-4 rounded-2xl font-bold">Done</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+</script>
+
 </body>
 </html>
