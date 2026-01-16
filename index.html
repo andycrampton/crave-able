@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>craVEable</title>
 
+    <!-- PWA & Mobile Optimization -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -33,7 +34,7 @@
         @keyframes popIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
         .animate-pop { animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        #bmc-wbtn { transform: scale(0.8); bottom: 18px !important; right: 18px !important; }
+        #bmc-wbtn { transform: scale(0.85); bottom: 20px !important; right: 20px !important; }
     </style>
 </head>
 <body class="text-neutral-800 text-sm">
@@ -65,9 +66,9 @@
 
             <section id="dish-inputs" class="hidden glass-card p-6 rounded-[2.5rem] space-y-4 animate-pop">
                 <p class="text-[10px] text-lime-800 font-black uppercase tracking-widest">Find a craving</p>
-                <input id="dish-query" type="text" placeholder="e.g. Vegan Roast..." class="input-box">
+                <input id="dish-query" type="text" placeholder="e.g. Vegan Roast, Pie..." class="input-box">
                 <div class="flex gap-2">
-                    <input id="dish-loc" type="text" placeholder="UK Town..." class="input-box">
+                    <input id="dish-loc" type="text" placeholder="UK Location..." class="input-box">
                     <button onclick="performDishSearch()" class="bg-brand-green text-white px-6 rounded-2xl font-black uppercase shadow-lg">Find</button>
                 </div>
             </section>
@@ -111,21 +112,21 @@
         }
 
         async function fetchWithRetry(url, options, retries = 5) {
-            let delay = 1000;
+            let backoff = 1000;
             for (let i = 0; i < retries; i++) {
                 try {
                     const res = await fetch(url, options);
                     if (res.ok) return res;
                     if (res.status === 429 || res.status >= 500) {
-                        await new Promise(r => setTimeout(r, delay));
-                        delay *= 2;
+                        await new Promise(r => setTimeout(r, backoff));
+                        backoff *= 2;
                         continue;
                     }
-                    throw new Error(`Status ${res.status}`);
+                    throw new Error(`Status: ${res.status}`);
                 } catch (err) {
                     if (i === retries - 1) throw err;
-                    await new Promise(r => setTimeout(r, delay));
-                    delay *= 2;
+                    await new Promise(r => setTimeout(r, backoff));
+                    backoff *= 2;
                 }
             }
         }
@@ -158,11 +159,11 @@
                     const card = document.createElement('div');
                     card.className = "glass-card p-6 rounded-[2.5rem] animate-pop cursor-pointer active:scale-95 transition-transform";
                     card.onclick = () => startChat({ name, category: parts[1], location: parts[2] });
-                    card.innerHTML = `<h3 class="font-bold text-lg brand-green">${name}</h3><p class="text-lime-600 text-[9px] font-black uppercase mb-2">${parts[1]} • ${parts[2]}</p><p class="text-neutral-500 text-xs">${parts[3] || ''}</p>`;
+                    card.innerHTML = `<h3 class="font-bold text-lg brand-green leading-tight">${name}</h3><p class="text-lime-600 text-[9px] font-black uppercase mb-2">${parts[1]} • ${parts[2]}</p><p class="text-neutral-500 text-xs line-clamp-2">${parts[3] || ''}</p>`;
                     list.appendChild(card);
                 });
             } catch (e) {
-                list.innerHTML = `<div class="p-10 text-center text-red-800/40 font-bold uppercase text-[10px]">Search error. Try again.</div>`;
+                list.innerHTML = `<div class="p-10 text-center text-red-800/40 font-bold uppercase text-[10px]">Search unavailable.</div>`;
             } finally {
                 loader.classList.add('hidden');
             }
@@ -170,7 +171,7 @@
 
         function performVenueSearch() {
             const val = document.getElementById('venue-loc-input').value;
-            if(val) executeSearch(`Find 8 specific vegan dining options in ${val}, UK.`);
+            if(val) executeSearch(`Find 8 vegan-friendly dining options in ${val}, UK.`);
         }
 
         function performDishSearch() {
@@ -186,7 +187,7 @@
             document.getElementById('back-btn').classList.remove('hidden');
             document.getElementById('chat-header').innerHTML = `<h2 class="font-black brand-green uppercase text-sm">${v.name}</h2><p class="text-[9px] text-lime-600 font-bold uppercase">${v.location}</p>`;
             document.getElementById('chat-messages').innerHTML = '';
-            addMsg("ai", `Checking the live menu for <b>${v.name}</b>...`);
+            addMsg("ai", `Searching for the current menu at <b>${v.name}</b>. What can I find for you?`);
         }
 
         async function handleChat(userText) {
@@ -203,7 +204,7 @@
                 const data = await res.json();
                 addMsg("ai", data.candidates?.[0]?.content?.parts?.[0]?.text || "No details found.");
             } catch (e) {
-                addMsg("ai", "Connection error. Please try again.");
+                addMsg("ai", "Connection reset. Please try your question again.");
             }
         }
 
@@ -236,10 +237,11 @@
             const modal = document.createElement('div');
             modal.className = "fixed inset-0 bg-black/70 backdrop-blur-sm z-[300] flex items-center justify-center p-6 animate-pop";
             modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
-            modal.innerHTML = `<div class="bg-white rounded-[2.5rem] p-8 max-w-xs w-full text-center space-y-4 shadow-2xl"><h3 class="font-black brand-green text-xl">Add to Phone</h3><p class="text-neutral-500 text-sm">Open in your browser's menu and select 'Add to Home Screen'.</p><button onclick="this.parentElement.parentElement.remove()" class="w-full bg-brand-green text-white py-4 rounded-2xl font-bold">Got it</button></div>`;
+            modal.innerHTML = `<div class="bg-white rounded-[2.5rem] p-8 max-w-xs w-full text-center space-y-4 shadow-2xl"><h3 class="font-black brand-green text-xl">Add to Home Screen</h3><p class="text-neutral-500 text-sm">Open in your browser's menu and select 'Add to Home Screen'.</p><button onclick="this.parentElement.parentElement.remove()" class="w-full bg-brand-green text-white py-4 rounded-2xl font-bold">Got it</button></div>`;
             document.body.appendChild(modal);
         }
     </script>
-    <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="craveable" data-description="Support craVEable!" data-message="Keep this app alive with a small coffee!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
+    <!-- Support Widget -->
+    <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="craveable" data-description="Support me on Buy me a coffee!" data-message="Help keep craVEable alive with a small coffee!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
 </body>
 </html>
